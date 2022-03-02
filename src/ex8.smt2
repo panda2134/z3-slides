@@ -1,4 +1,4 @@
 (assert
   (not (exists ((i Int) (j Int)) 
-               (> (select A i) (select A j)))
+               (and (< i j) (> (select A i) (select A j))))
 ))
