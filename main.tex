@@ -302,7 +302,7 @@
     \vspace{4pt}
     Sorted $\Leftrightarrow$ \href{https://en.wikipedia.org/wiki/Inversion_(discrete_mathematics)}{Inversion} does not exist $\Leftrightarrow$:
     \begin{equation*}
-      \neg(\exists i, j \in \mathbb{Z}, s.t.\: A_i > A_j)
+      \neg(\exists i, j \in \mathbb{Z}, s.t.\: i < j \land A_i > A_j)
     \end{equation*}
     \inputminted{lisp}{./src/ex8.smt2}
   \end{alertblock}
