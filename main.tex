@@ -1,0 +1,320 @@
+\documentclass[10pt]{beamer}
+
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+
+\usepackage{booktabs}
+\usepackage[scale=2]{ccicons}
+
+\usepackage{pgfplots}
+\usepgfplotslibrary{dateplot}
+
+\usepackage{minted}
+\usepackage{hyperref}
+
+\title{Interacting with Z3 using SMTLIB2}
+\subtitle{A beginner's guide}
+\date{\today}
+\author{Liu Jiangyi}
+\institute{School of Software, Tsinghua University}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{Table of contents}
+  \setbeamertemplate{section in toc}[sections numbered]
+  \tableofcontents
+\end{frame}
+
+\section{Introduction to Z3}
+
+\begin{frame}[fragile]{What is Z3?}
+  Z3\cite{moura2008z3} is a new \alert{SMT solver} from Microsoft Research.
+  It is targeted at solving problems that arise in software verification
+  and software analysis.
+  \pause
+  Checking \alert{satisfiability} of \alert{SMT formulas} in short.
+  \pause
+  \begin{exampleblock}{Example}
+  \begin{columns}
+    \hspace{0.06\linewidth}
+    \begin{column}{0.18\linewidth}
+      \begin{equation*}
+        \begin{cases}
+          2x + y &= 5 \\
+          x + y &= 3
+        \end{cases}
+      \end{equation*}
+    \end{column}
+    \begin{column}{0.02\linewidth}
+      $$\rightarrow$$
+    \end{column}
+    \begin{column}{0.36\linewidth}
+      \inputminted{lisp}{src/ex1.smt2}
+    \end{column}
+    \begin{column}{0.02\linewidth}
+      $$\rightarrow$$
+    \end{column}
+    \begin{column}{0.20\linewidth} 
+      \inputminted{lisp}{src/ex1-out.smt2}
+    \end{column}
+    \hspace{0.2\linewidth}
+  \end{columns}
+\end{exampleblock}
+\end{frame}
+
+\begin{frame}{Input format of Z3}
+  \begin{itemize}[<+->]
+    \item Calling the binary API from language bindings, or
+    \item Use SMTLIB2 files
+    \item In this lecture, we mainly focus on the SMTLIB2 format.
+  \end{itemize}
+
+\end{frame}
+
+\section{SMTLIB2 Format}
+
+\begin{frame}{What is defined by SMTLIB2}
+  \begin{itemize}[<+->]
+    \item A language for writing \emph{terms and formulas} in a \emph{typed}(sorted) version of \emph{first-order logic}
+    \item A language for \emph{specifying background theories}
+    \item A language for \emph{specifying logics}, which restricted classes of formulas that can be checked for satisfiability with respect to background theories
+    \item A command language for \emph{interacting with SMT solvers}
+  \end{itemize}
+\end{frame}
+
+\subsection{Basic Usage}
+
+\begin{frame}{Basic Syntax}
+  SMTLIB2\cite{BarFT-RR-17} roughly resembles the \href{https://en.wikipedia.org/wiki/Lisp_(programming_language)}{Lisp programming language}.
+  \begin{itemize}[<+->]
+    \item Lisp programs are constructed with \alert{S-expressions}
+    \item \mintinline{python}{2 * 3} $\Rightarrow$ \mintinline{lisp}{(* 2 3)}, viewed as a call to binary function *
+    \item \mintinline{python}{f(1, 2, 3)} $\Rightarrow$ \mintinline{lisp}{(f 1 2 3)}
+  \end{itemize}
+
+  \begin{itemize}[<+->]
+    \item Every \emph{SMTLIB2 script file} consists of \alert{lines of commands}.
+    \item Every \emph{command} is a \alert{function call} in the form of \emph{S-expressions}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Basic Commands}
+  \begin{itemize}[<+->]
+    \item Declare an integer in model: \mintinline{lisp}{(declare-const x Int)}
+    \item Add an assertion: \mintinline{lisp}{(assert (> x 1))}
+    \item Add another assertion: \mintinline{lisp}{(assert (< (* x x) 5))}
+    \item Check for satisfiability: \mintinline{lisp}{(check-sat)}
+    \item Get a model in case of sat: \mintinline{lisp}{(get-model)}
+  \end{itemize}
+  \onslide<+->{
+  \begin{example}
+    \vspace{4pt}
+    Write the SMTLIB2 code to check satisfiability of the following:
+    \begin{equation*}
+      x^2 \ge 5 \land x^3 < 30 \qquad (x \in \mathbb{Z})
+    \end{equation*}
+  \end{example}
+  }
+  \onslide<+->{
+  \begin{alertblock}{Answer}
+    \inputminted{lisp}{./src/ex2.smt2}
+  \end{alertblock}
+  }
+\end{frame}
+
+\begin{frame}{Binding Variables}
+  \begin{itemize}[<+->]
+    \item Declare a constant in the model: \mintinline{lisp}{(declare-const x Int)} (Int/Bool/Real/...)
+    \item Bind variables in a codeblock: \mintinline{lisp}{(let ((x1 e1) (x2 e2) ... (xn en)) e)}
+          \begin{itemize}
+            \item Then \texttt{x1 x2 ... xn} can be used in expression \texttt{e}
+          \end{itemize}
+    \item Quantifiers, like $\forall$ and $\exists$ (more on this later)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Functional Programming}
+  \begin{itemize}[<+->]
+    \item FP patterns are common in SMTLIB2. Everything is treated as a function:
+    \item \texttt{+}/\texttt{-} is a function doing addition/substraction
+    \item constants are 0-ary functions (i.e. accepting no arguments)
+    \item therefore, all expressions are function calls (e.g. \mintinline{lisp}{(* 2 3 4)})
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Propositional Logic}
+  \begin{itemize}[<+->]
+    \item $p \land q$: \mintinline{lisp}{(and p q)}
+    \item $p \lor q$: \mintinline{lisp}{(or p q)}
+    \item $\neg p$: \mintinline{lisp}{(not p)}
+    \item $p \to q$: \mintinline{lisp}{(implies p q)}
+    \item $p \leftrightarrow q$: \mintinline{lisp}{(= p q)}
+    \item \mintinline{C}{p ? q : r}: \mintinline{lisp}{(ite p q r)}
+  \end{itemize}
+  \onslide<+->{
+  \begin{example}
+    \vspace{4pt}
+    Prove the validity of the following formula.
+    \begin{equation*}
+      (p \to q) \to ((q \to r) \to (p \to r))
+    \end{equation*}
+  \end{example}
+  }
+\end{frame}
+
+\begin{frame}{Propositional Logic}
+  \begin{alertblock}{Answer}
+    \vspace{4pt}
+    To prove the validity of formula $F$, we instead check that $\neg F$ is unsat.
+    \inputminted{lisp}{./src/ex3.smt2}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Arithmetic}
+  \begin{itemize}
+    \item \texttt{+ | - | * | / | \^{} | div | mod}
+    \item same as other programming languages
+  \end{itemize}
+  \begin{example}
+    \vspace{4pt}
+    \alert{Chinese Remainder Theorem.} Solve for $x$ in the following problem.
+    \begin{equation*}
+      \begin{cases}
+        x \bmod 3 &= 2\\
+        x \bmod 5 &= 3\\
+        x \bmod 7 &= 2\\
+        x \in \mathbb{N}
+      \end{cases}
+    \end{equation*}
+  \end{example}
+\end{frame}
+
+\begin{frame}{Arithmetic}
+  \begin{alertblock}{Answer}
+    \inputminted{lisp}{./src/ex4.smt2}
+    \inputminted{lisp}{./src/ex4-out.smt2}
+  \end{alertblock}
+\end{frame}
+
+\subsection{Advanced Topics}
+
+\begin{frame}[fragile]{Functions}
+  \begin{itemize}[<+->]
+    \item declares an uninterpreted function with signature $T_1 \times T_2 \times \dots \times T_n \to T_r$
+    \item \mintinline{lisp}{(declare-fun f (T1 T2 ... Tn) Tr)}
+    \item \alert{Note:} \mintinline{lisp}{(declare-const f T)} is a shorthand for \mintinline{lisp}{(declare-fun f () T)}
+  \end{itemize}
+  \only<+->{
+    \begin{example}
+      \vspace{4pt}
+      Given the following truth table, please write a formula for function $f: \mathtt{Bool} \times \mathtt{Bool} \to \mathtt{Bool}$.
+      \begin{table}
+        % \caption{Truth table for ex5\label{tab:ex5}}
+        \begin{tabular}{ccc}
+          \toprule
+          $x$ & $y$ & $f(x,y)$\\
+          \midrule
+          $\bot$ & $\bot$ & $\bot$\\
+          $\bot$ & $\top$ & $\top$\\
+          $\top$ & $\bot$ & $\top$\\
+          $\top$ & $\top$ & $\bot$\\
+          \bottomrule
+        \end{tabular}
+      \end{table}
+    \end{example}
+  }
+\end{frame}
+
+\begin{frame}{Functions}
+  \begin{alertblock}{Answer}
+    \inputminted{lisp}{./src/ex5.smt2}
+    \inputminted[mathescape=true]{lisp}{./src/ex5-out.smt2}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Machine Arithmetic\footnote{Referred to \cite{bjorner2018programming}.}}
+  \begin{itemize}[<+->]
+    \item Type for BitVec: \mintinline[escapeinside=||]{lisp}{(_ BitVec |$length$|)}
+    \item Declare an \mintinline{c}{int32_t}: \mintinline{lisp}{(declare-const x (_ BitVec 32))}
+    \item Immediate value: binary \mintinline{lisp}{#b01111111} or hexadecimal \mintinline{lisp}{#x7f}
+    \item Conversion from/to int: \mintinline{lisp}{(bv2int bv)}/\mintinline{lisp}{(int2bv i)}
+    \item bvadd/bvsub/bvmul/bvsdiv/bvudiv/bvurem
+    \item bvand/bvor/bvnot/bvshl/bvlshr
+    \item Signed vs Unsigned, Logic Shift vs Arithmetic Shift
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Machine Arithmetic}
+  \begin{example}
+    \vspace{4pt}
+    Recall the binary search example on Lecture 1;
+    we already know that $mid = (l + r) / 2$ suffers from integer overflow.
+    Try to find a case where the overflow happens, i.e. \mintinline{c}{(x+y)/2}
+    in a C program differs from $(x + y) \div 2$.
+  \end{example}
+\end{frame}
+
+\begin{frame}[fragile]{Machine Arithmetic}
+  \begin{alertblock}{Answer}
+    \inputminted[mathescape=true]{lisp}{./src/ex6.smt2}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Machine Arithmetic}
+  \begin{alertblock}{Answer(contd.)}
+    \inputminted[mathescape=true]{lisp}{./src/ex6-out.smt2}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Arrays}
+  \begin{itemize}[<+->]
+    \item Declaration: \mintinline{lisp}{(declare-const A (Array Int Real))}
+    \item an array whose subscripts are \texttt{Int}'s and contents are \texttt{Real}'s
+    \item Select an element from an array: \mintinline{lisp}{(select A 1)}
+    \item Store an element into an array: \mintinline{lisp}{(store A 1 3.14)}
+    \item \alert{Note:} \texttt{store} is \emph{pure}, i.e. it returns a new array containing the modified item
+    \item $\mathbb{Z}\to\mathbb{Z}$ array containing zeros: \mintinline{lisp}{((as const (Array Int Int)) 0)}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Arrays}
+  \begin{exampleblock}{Example Usage}
+    \inputminted[mathescape=true]{lisp}{./src/ex7.smt2}
+    \pause
+    \alert{Output}
+    \inputminted[mathescape=true]{lisp}{./src/ex7-out.smt2}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Quantifiers}
+  \begin{itemize}[<+->]
+    \item Usually, arrays are used with quantifiers
+    \item $\forall x,y \in \mathbb{Z},\: p(x,y)$: \mintinline{lisp}{(forall ((x Int) (y Int)) (p x y))}
+    \item $\exists x,y \in \mathbb{Z},s.t.\: p(x,y)$: \mintinline{lisp}{(exists ((x Int) (y Int)) (p x y))}
+    \item Write an SMTLIB2 assertion: array A ($\mathtt{Int} \to \mathtt{Int}$) is sorted.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Quantifiers}
+  \begin{alertblock}{Answer}
+    \vspace{4pt}
+    Sorted $\Leftrightarrow$ \href{https://en.wikipedia.org/wiki/Inversion_(discrete_mathematics)}{Inversion} does not exist $\Leftrightarrow$:
+    \begin{equation*}
+      \neg(\exists i, j \in \mathbb{Z}, s.t.\: A_i > A_j)
+    \end{equation*}
+    \inputminted{lisp}{./src/ex8.smt2}
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[standout]
+  Questions?
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+  \bibliography{main}
+  \bibliographystyle{abbrv}
+\end{frame}
+
+\end{document}
